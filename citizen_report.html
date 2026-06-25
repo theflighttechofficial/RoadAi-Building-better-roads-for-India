@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Road-AI — Report a Pothole</title>
+<style>
+:root {
+  --bg:    #060810; --s1:#0b0e17; --s2:#10141f;
+  --border:#252c40; --text:#cdd6f4; --dim:#6272a4;
+  --good:  #a6e3a1; --poor:#f38ba8; --mod:#f9e2af;
+  --blue:  #89b4fa; --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;
+     min-height:100vh;padding:0 0 40px}
+
+/* Header */
+.hdr{background:var(--s1);border-bottom:1px solid var(--border);
+     padding:14px 20px;display:flex;align-items:center;gap:12px;
+     position:sticky;top:0;z-index:100}
+.logo-icon{width:32px;height:32px;border-radius:8px;
+  background:linear-gradient(135deg,var(--good),#94e2d5);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:14px;color:#060810}
+.hdr-title{font-size:16px;font-weight:700}
+.hdr-title span{color:var(--good)}
+.hdr-sub{font-size:10px;color:var(--dim);font-family:var(--mono)}
+.hdr-link{margin-left:auto;font-size:10px;color:var(--blue);text-decoration:none;
+  font-family:var(--mono)}
+
+/* Steps */
+.steps{display:flex;gap:0;padding:16px 20px;border-bottom:1px solid var(--border)}
+.step{flex:1;text-align:center;font-size:10px;color:var(--dim);
+  font-family:var(--mono);position:relative}
+.step.active{color:var(--good)}
+.step-dot{width:24px;height:24px;border-radius:50%;border:2px solid var(--border);
+  display:flex;align-items:center;justify-content:center;margin:0 auto 5px;
+  font-size:11px;font-weight:700;background:var(--s2);color:var(--dim)}
+.step.active .step-dot{border-color:var(--good);color:var(--good);
+  background:rgba(166,227,161,.1)}
+.step.done .step-dot{background:var(--good);color:#060810;border-color:var(--good)}
+.step-line{position:absolute;top:11px;left:calc(50% + 14px);
+  right:calc(-50% + 14px);height:2px;background:var(--border)}
+.step:last-child .step-line{display:none}
+.step.done .step-line{background:var(--good)}
+
+/* Sections */
+.section{padding:20px;max-width:500px;margin:0 auto}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:10px;
+  padding:20px;margin-bottom:16px}
+
+/* Photo upload */
+#drop-zone{border:2px dashed var(--border);border-radius:10px;padding:32px 16px;
+  text-align:center;cursor:pointer;transition:.2s;background:var(--s2)}
+#drop-zone:hover,#drop-zone.over{border-color:var(--good)}
+#drop-zone .icon{font-size:40px;margin-bottom:10px}
+#drop-zone .hint{font-size:13px;color:var(--dim)}
+#drop-zone .hint span{color:var(--text);text-decoration:underline}
+#preview{display:none;width:100%;border-radius:8px;margin-top:12px;
+  max-height:240px;object-fit:cover}
+#ai-result{display:none;margin-top:12px;padding:12px;
+  background:rgba(166,227,161,.08);border:1px solid rgba(166,227,161,.3);
+  border-radius:6px;font-size:12px;font-family:var(--mono)}
+
+/* Form fields */
+label{display:block;font-size:11px;color:var(--dim);
+  text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;
+  font-family:var(--mono)}
+input,textarea,select{width:100%;padding:10px 13px;
+  background:var(--s2);border:1px solid var(--border);
+  border-radius:6px;color:var(--text);font-size:13px;outline:none;
+  transition:.15s;font-family:inherit}
+input:focus,textarea:focus,select:focus{border-color:var(--good)}
+textarea{min-height:80px;resize:vertical}
+.fr{margin-bottom:14px}
+
+/* GPS */
+#gps-status{font-size:11px;color:var(--dim);font-family:var(--mono);
+  margin-top:6px;min-height:16px}
+#gps-status.ok{color:var(--good)}
+#gps-status.err{color:var(--poor)}
+#gps-map{width:100%;height:180px;border-radius:8px;border:1px solid var(--border);
+  margin-top:10px;display:none;background:var(--s2)}
+
+/* Severity buttons */
+.sev-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.sev-btn{padding:10px;border:2px solid var(--border);border-radius:6px;
+  background:var(--s2);color:var(--dim);cursor:pointer;text-align:center;
+  font-size:12px;transition:.15s}
+.sev-btn:hover{border-color:var(--mod)}
+.sev-btn.sel{border-color:var(--good);color:var(--text);
+  background:rgba(166,227,161,.08)}
+.sev-btn .sev-icon{font-size:22px;display:block;margin-bottom:4px}
+
+/* Buttons */
+.btn-primary{width:100%;padding:13px;background:var(--good);border:none;
+  border-radius:8px;color:#060810;font-size:14px;font-weight:700;
+  cursor:pointer;letter-spacing:.04em;transition:.15s}
+.btn-primary:hover{opacity:.88}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{width:100%;padding:11px;background:none;border:1px solid var(--border);
+  border-radius:8px;color:var(--dim);font-size:13px;cursor:pointer;margin-top:8px}
+.btn-secondary:hover{border-color:var(--dim);color:var(--text)}
+
+/* Success state */
+#success-screen{display:none;text-align:center;padding:40px 20px}
+.success-icon{font-size:64px;margin-bottom:16px}
+.ticket-badge{display:inline-block;padding:8px 20px;
+  background:rgba(166,227,161,.1);border:1px solid var(--good);
+  border-radius:6px;font-family:var(--mono);font-size:18px;
+  font-weight:700;color:var(--good);letter-spacing:.1em;margin:16px 0}
+#track-link{color:var(--blue);text-decoration:underline;cursor:pointer;
+  font-family:var(--mono);font-size:12px}
+
+/* Loading overlay */
+#loading{display:none;position:fixed;inset:0;background:rgba(6,8,16,.85);
+  z-index:999;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.spinner{width:40px;height:40px;border:3px solid var(--border);
+  border-top-color:var(--good);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Floating report status tracker */
+#tracker{display:none;background:var(--s1);border:1px solid var(--border);
+  border-radius:10px;padding:20px;margin-top:16px}
+.track-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.track-item:last-child{border-bottom:none}
+.track-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.track-content{flex:1}
+.track-id{font-family:var(--mono);font-size:11px;color:var(--good);font-weight:700}
+.track-status{font-size:12px;color:var(--sub)}
+.track-time{font-size:10px;color:var(--dim);font-family:var(--mono)}
+
+/* Notification bar */
+.notif{padding:10px 16px;border-radius:6px;font-size:12px;
+  margin-bottom:12px;display:none}
+.notif.info{background:rgba(137,180,250,.1);border:1px solid rgba(137,180,250,.3);
+  color:var(--blue)}
+.notif.error{background:rgba(243,139,168,.1);border:1px solid rgba(243,139,168,.3);
+  color:var(--poor)}
+</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+</head>
+<body>
+
+<!-- Header -->
+<div class="hdr">
+  <div class="logo-icon">R</div>
+  <div>
+    <div class="hdr-title">Road<span>AI</span></div>
+    <div class="hdr-sub">Citizen Pothole Reporter</div>
+  </div>
+  <a href="/" class="hdr-link">← Dashboard</a>
+</div>
+
+<!-- Step indicator -->
+<div class="steps">
+  <div class="step active" id="step1">
+    <div class="step-dot">1</div>
+    Photo
+    <div class="step-line"></div>
+  </div>
+  <div class="step" id="step2">
+    <div class="step-dot">2</div>
+    Location
+    <div class="step-line"></div>
+  </div>
+  <div class="step" id="step3">
+    <div class="step-dot">3</div>
+    Details
+    <div class="step-line"></div>
+  </div>
+  <div class="step" id="step4">
+    <div class="step-dot">4</div>
+    Submit
+  </div>
+</div>
+
+<!-- Loading overlay -->
+<div id="loading" style="display:none;flex-direction:column">
+  <div class="spinner"></div>
+  <div style="font-family:var(--mono);font-size:12px;color:var(--dim)" id="loading-msg">
+    Analysing photo…
+  </div>
+</div>
+
+<!-- Success screen -->
+<div id="success-screen" class="section">
+  <div class="success-icon">✅</div>
+  <h2 style="color:var(--good);margin-bottom:8px">Report Submitted!</h2>
+  <p style="color:var(--dim);font-size:14px;margin-bottom:16px">
+    Thank you for helping improve your roads. Your report has been received.
+  </p>
+  <div class="ticket-badge" id="ticket-display">RPT-XXXXXX</div>
+  <p style="color:var(--dim);font-size:12px;margin-bottom:20px">
+    Save this ticket number to track your report's status.
+  </p>
+  <button class="btn-primary" onclick="trackReport()">🔍 Track My Report</button>
+  <button class="btn-secondary" onclick="resetForm()">+ Report Another</button>
+
+  <div id="tracker" style="margin-top:20px">
+    <div style="font-size:13px;font-weight:700;margin-bottom:12px">Report Status</div>
+    <div id="tracker-content"></div>
+  </div>
+</div>
+
+<!-- Main form -->
+<div id="form-screen">
+<div class="section">
+  <div id="notif" class="notif"></div>
+
+  <!-- Step 1: Photo -->
+  <div class="card" id="card-photo">
+    <div style="font-weight:700;margin-bottom:14px;font-size:14px">
+      📸 Step 1 — Take or upload a photo
+    </div>
+    <div id="drop-zone"
+         onclick="document.getElementById('photo-input').click()"
+         ondragover="event.preventDefault();this.classList.add('over')"
+         ondragleave="this.classList.remove('over')"
+         ondrop="handleDrop(event)">
+      <div class="icon">📷</div>
+      <div class="hint">
+        Tap to take photo or upload<br>
+        <span>Browse files</span>
+      </div>
+    </div>
+    <input id="photo-input" type="file" accept="image/*" capture="environment"
+           style="display:none" onchange="handlePhoto(this)"/>
+    <img id="preview" alt="Preview"/>
+    <div id="ai-result">
+      <div style="color:var(--good);font-weight:700;margin-bottom:4px">
+        🤖 AI Detection
+      </div>
+      <div id="ai-text">Analysing…</div>
+    </div>
+  </div>
+
+  <!-- Step 2: Location -->
+  <div class="card" id="card-location">
+    <div style="font-weight:700;margin-bottom:14px;font-size:14px">
+      📍 Step 2 — Your location
+    </div>
+    <button class="btn-primary" onclick="getGPS()" id="gps-btn">
+      📡 Use My GPS Location
+    </button>
+    <div id="gps-status">Tap above to detect your location automatically</div>
+    <div id="gps-map"></div>
+    <div class="fr" style="margin-top:14px">
+      <label>Or enter address / landmark</label>
+      <input id="inp-address" type="text"
+             placeholder="e.g. Near Anna Nagar roundabout, Chennai"/>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="fr">
+        <label>Ward (optional)</label>
+        <input id="inp-ward" type="text" placeholder="Ward 42"/>
+      </div>
+      <div class="fr">
+        <label>Road name</label>
+        <input id="inp-road" type="text" placeholder="NH-48"/>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Severity + description -->
+  <div class="card" id="card-details">
+    <div style="font-weight:700;margin-bottom:14px;font-size:14px">
+      ⚠ Step 3 — Damage details
+    </div>
+    <div class="fr">
+      <label>How bad is it?</label>
+      <div class="sev-grid">
+        <div class="sev-btn" onclick="setSeverity('small',this)">
+          <span class="sev-icon">🟡</span>Small crack<br>
+          <span style="font-size:10px;color:var(--dim)">&lt;5cm wide</span>
+        </div>
+        <div class="sev-btn" onclick="setSeverity('medium',this)">
+          <span class="sev-icon">🟠</span>Medium pothole<br>
+          <span style="font-size:10px;color:var(--dim)">5–20cm wide</span>
+        </div>
+        <div class="sev-btn" onclick="setSeverity('large',this)">
+          <span class="sev-icon">🔴</span>Large pothole<br>
+          <span style="font-size:10px;color:var(--dim)">&gt;20cm wide</span>
+        </div>
+        <div class="sev-btn" onclick="setSeverity('danger',this)">
+          <span class="sev-icon">🚨</span>Dangerous<br>
+          <span style="font-size:10px;color:var(--dim)">Immediate risk</span>
+        </div>
+      </div>
+    </div>
+    <div class="fr">
+      <label>Description (optional)</label>
+      <textarea id="inp-desc"
+                placeholder="e.g. Large pothole near school gate, causes traffic jam during peak hours…"></textarea>
+    </div>
+    <div class="fr">
+      <label>Your name (optional)</label>
+      <input id="inp-name" type="text" placeholder="Anonymous"/>
+    </div>
+    <div class="fr">
+      <label>Contact (optional — for status updates)</label>
+      <input id="inp-contact" type="text" placeholder="Phone or email"/>
+    </div>
+  </div>
+
+  <!-- Step 4: Submit -->
+  <div class="card">
+    <div style="font-weight:700;margin-bottom:10px;font-size:14px">
+      ✅ Step 4 — Submit your report
+    </div>
+    <div style="font-size:12px;color:var(--dim);margin-bottom:16px;line-height:1.6">
+      Your report will be sent to the Road-AI monitoring system and shared with
+      local authorities. You'll receive a ticket number to track the repair status.
+    </div>
+    <button class="btn-primary" id="submit-btn" onclick="submitReport()">
+      🚀 Submit Report
+    </button>
+  </div>
+
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const API = 'http://localhost:8000/api';
+let _lat = null, _lon = null, _severity = null, _imageB64 = null;
+let _map = null, _marker = null;
+
+// ── Step navigation ───────────────────────────────────────────────
+function setStep(n) {
+  [1,2,3,4].forEach(i => {
+    const el = document.getElementById('step'+i);
+    el.className = 'step' + (i < n ? ' done' : i === n ? ' active' : '');
+    const dot = el.querySelector('.step-dot');
+    dot.textContent = i < n ? '✓' : i;
+  });
+}
+
+// ── Photo handling ────────────────────────────────────────────────
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) processPhoto(file);
+}
+
+function handlePhoto(input) {
+  if (input.files[0]) processPhoto(input.files[0]);
+}
+
+function processPhoto(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    _imageB64 = e.target.result.split(',')[1];
+    const preview = document.getElementById('preview');
+    preview.src = e.target.result;
+    preview.style.display = 'block';
+    document.getElementById('drop-zone').style.display = 'none';
+    // Simulate AI detection (in production, call /api/sessions for analysis)
+    analysePhoto();
+    setStep(2);
+  };
+  reader.readAsDataURL(file);
+}
+
+function analysePhoto() {
+  const res = document.getElementById('ai-result');
+  const txt = document.getElementById('ai-text');
+  res.style.display = 'block';
+  txt.textContent   = 'Analysing image…';
+  // Simulate quick AI result (real version would POST to an endpoint)
+  setTimeout(() => {
+    const classes = ['Pothole','Alligator Crack','Transverse Crack','Longitudinal Crack'];
+    const cls = classes[Math.floor(Math.random() * classes.length)];
+    const conf = (70 + Math.random() * 28).toFixed(0);
+    txt.innerHTML = `Detected: <strong style="color:var(--good)">${cls}</strong> `
+                  + `(${conf}% confidence)<br>`
+                  + `<span style="color:var(--dim);font-size:10px">`
+                  + `Road-AI suggests severity: ${conf>85?'High':'Medium'}</span>`;
+  }, 1200);
+}
+
+// ── GPS ────────────────────────────────────────────────────────────
+function getGPS() {
+  const st  = document.getElementById('gps-status');
+  const btn = document.getElementById('gps-btn');
+  st.className  = '';
+  st.textContent = '📡 Detecting location…';
+  btn.disabled   = true;
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      _lat = pos.coords.latitude;
+      _lon = pos.coords.longitude;
+      st.className  = 'ok';
+      st.textContent = `✓ GPS: ${_lat.toFixed(5)}, ${_lon.toFixed(5)}`;
+      btn.disabled  = false;
+      showMap(_lat, _lon);
+      setStep(3);
+    },
+    (err) => {
+      st.className  = 'err';
+      st.textContent = '✗ GPS unavailable — please enter address below';
+      btn.disabled  = false;
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+function showMap(lat, lon) {
+  const mapEl = document.getElementById('gps-map');
+  mapEl.style.display = 'block';
+  if (!_map) {
+    _map    = L.map('gps-map').setView([lat, lon], 17);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+                {maxZoom:19}).addTo(_map);
+    _marker = L.marker([lat, lon], {draggable: true}).addTo(_map);
+    _marker.on('dragend', (e) => {
+      const p = e.target.getLatLng();
+      _lat = p.lat; _lon = p.lng;
+      document.getElementById('gps-status').textContent =
+        `✓ GPS: ${_lat.toFixed(5)}, ${_lon.toFixed(5)}`;
+    });
+  } else {
+    _map.setView([lat, lon], 17);
+    _marker.setLatLng([lat, lon]);
+  }
+  setTimeout(() => _map.invalidateSize(), 100);
+}
+
+// ── Severity ──────────────────────────────────────────────────────
+function setSeverity(sev, el) {
+  document.querySelectorAll('.sev-btn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel');
+  _severity = sev;
+  setStep(4);
+}
+
+// ── Submit ────────────────────────────────────────────────────────
+async function submitReport() {
+  const btn = document.getElementById('submit-btn');
+  const notif = document.getElementById('notif');
+  notif.style.display = 'none';
+
+  // Validation
+  if (!_imageB64) {
+    showNotif('Please take or upload a photo first.', 'error'); return;
+  }
+  if (!_lat && !document.getElementById('inp-address').value.trim()) {
+    showNotif('Please provide your location (GPS or address).', 'error'); return;
+  }
+  if (!_severity) {
+    showNotif('Please select damage severity.', 'error'); return;
+  }
+
+  const desc = [
+    document.getElementById('inp-desc').value,
+    document.getElementById('inp-road').value ? 'Road: '+document.getElementById('inp-road').value : '',
+    document.getElementById('inp-name').value ? 'Reported by: '+document.getElementById('inp-name').value : '',
+    document.getElementById('inp-contact').value ? 'Contact: '+document.getElementById('inp-contact').value : '',
+  ].filter(Boolean).join(' | ');
+
+  const payload = {
+    lat:         _lat,
+    lon:         _lon,
+    address:     document.getElementById('inp-address').value,
+    ward:        document.getElementById('inp-ward').value,
+    description: `[${_severity.toUpperCase()}] ${desc}`,
+    image_b64:   _imageB64,
+  };
+
+  showLoading('Submitting your report…');
+  btn.disabled = true;
+
+  try {
+    const res  = await fetch(`${API}/citizen/report`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    hideLoading();
+
+    if (data.ok) {
+      document.getElementById('form-screen').style.display = 'none';
+      document.getElementById('success-screen').style.display = 'block';
+      document.getElementById('ticket-display').textContent = data.report_id;
+      localStorage.setItem('road_ai_last_ticket', data.report_id);
+    } else {
+      showNotif('Submission failed. Please try again.', 'error');
+      btn.disabled = false;
+    }
+  } catch(e) {
+    hideLoading();
+    showNotif('Could not connect to server. Is Road-AI running?', 'error');
+    btn.disabled = false;
+  }
+}
+
+// ── Tracking ──────────────────────────────────────────────────────
+async function trackReport() {
+  const ticket  = document.getElementById('ticket-display').textContent;
+  const tracker = document.getElementById('tracker');
+  tracker.style.display = 'block';
+
+  try {
+    const res     = await fetch(`${API}/citizen/reports`);
+    const reports = await res.json();
+    const mine    = reports.find(r => r.report_id === ticket);
+
+    const statusColors = {
+      received:    '#89b4fa',
+      assigned:    '#f9e2af',
+      in_progress: '#a6e3a1',
+      resolved:    '#a6e3a1',
+    };
+    const statusLabels = {
+      received:    '📬 Report Received',
+      assigned:    '👷 Assigned to Team',
+      in_progress: '🚧 Repair In Progress',
+      resolved:    '✅ Resolved',
+    };
+
+    if (mine) {
+      const col = statusColors[mine.status] || '#6272a4';
+      const lbl = statusLabels[mine.status] || mine.status;
+      document.getElementById('tracker-content').innerHTML = `
+        <div class="track-item">
+          <div class="track-dot" style="background:${col}"></div>
+          <div class="track-content">
+            <div class="track-id">${mine.report_id}</div>
+            <div class="track-status">${lbl}</div>
+            <div class="track-time">${mine.created_at?.slice(0,16).replace('T',' ')}</div>
+            ${mine.notes ? `<div style="font-size:11px;color:var(--dim);margin-top:4px">${mine.notes}</div>` : ''}
+          </div>
+        </div>`;
+    } else {
+      document.getElementById('tracker-content').innerHTML =
+        `<div style="font-size:12px;color:var(--dim)">Report ${ticket} — status pending</div>`;
+    }
+  } catch(e) {
+    document.getElementById('tracker-content').innerHTML =
+      `<div style="font-size:12px;color:var(--dim)">Could not load status — check back later</div>`;
+  }
+}
+
+function resetForm() {
+  document.getElementById('form-screen').style.display  = 'block';
+  document.getElementById('success-screen').style.display = 'none';
+  document.getElementById('preview').style.display = 'none';
+  document.getElementById('drop-zone').style.display = 'block';
+  document.getElementById('ai-result').style.display = 'none';
+  document.getElementById('inp-address').value = '';
+  document.getElementById('inp-desc').value    = '';
+  document.getElementById('inp-name').value    = '';
+  document.getElementById('inp-contact').value = '';
+  document.getElementById('gps-status').textContent = 'Tap above to detect your location';
+  document.getElementById('gps-status').className   = '';
+  document.getElementById('gps-map').style.display  = 'none';
+  document.querySelectorAll('.sev-btn').forEach(b => b.classList.remove('sel'));
+  _lat = _lon = _severity = _imageB64 = null;
+  setStep(1);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+function showNotif(msg, type='info') {
+  const el = document.getElementById('notif');
+  el.className   = `notif ${type}`;
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 5000);
+}
+function showLoading(msg='Loading…') {
+  const el = document.getElementById('loading');
+  document.getElementById('loading-msg').textContent = msg;
+  el.style.display = 'flex';
+}
+function hideLoading() {
+  document.getElementById('loading').style.display = 'none';
+}
+
+// Auto-load last ticket on return visit
+window.addEventListener('load', () => {
+  const last = localStorage.getItem('road_ai_last_ticket');
+  if (last) {
+    // Show subtle "track previous report" hint
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+*.pyd
+*.dll
+*.exe
+*.pt
+*.pth
+*.onnx
+*.weights
+*.log

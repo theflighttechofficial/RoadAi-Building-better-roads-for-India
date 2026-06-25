@@ -1,0 +1,89 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────
+# Road-AI  –  docker-compose.yml
+# ─────────────────────────────────────────────────────────────────
+#
+# QUICK START:
+#   docker-compose up                 # start dashboard
+#   docker-compose up --build         # rebuild first
+#   docker-compose run pipeline \
+#     python main.py --video /data/road.mp4 --dashboard --gps 13.08,80.27
+#
+# DEMO MODE (no video / model needed):
+#   docker-compose run dashboard \
+#     python launch.py --demo --no-browser
+#
+# ACCESS:
+#   Dashboard : http://localhost:8000
+#   API Docs  : http://localhost:8000/docs
+# ─────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Live dashboard ─────────────────────────────────────────────
+  dashboard:
+    build: .
+    image: road-ai:latest
+    container_name: road-ai-dashboard
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./output:/app/output        # persist all analysis output
+      - ./sessions.db:/app/sessions.db  # persist session history
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout:   5s
+      retries:   5
+      start_period: 15s
+    command: python dashboard_server.py --port 8000
+
+  # ── Analysis pipeline (run on demand, not always-on) ──────────
+  pipeline:
+    build: .
+    image: road-ai:latest
+    container_name: road-ai-pipeline
+    depends_on:
+      dashboard:
+        condition: service_healthy
+    volumes:
+      - ./output:/app/output
+      - ./data:/data:ro              # mount your video files here
+      - ./models:/app/models:ro      # mount YOLO model files here
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Override this command at runtime:
+    #   docker-compose run pipeline python main.py --video /data/road.mp4 --dashboard
+    command: >
+      python main.py
+        --video /data/demo.mp4
+        --model /app/models/yolov8n.pt
+        --dashboard
+        --gps 13.0827,80.2707
+        --excel
+        --tickets
+        --map
+    profiles:
+      - pipeline   # only starts when explicitly requested
+
+  # ── Demo mode (synthetic data, no video needed) ────────────────
+  demo:
+    build: .
+    image: road-ai:latest
+    container_name: road-ai-demo
+    depends_on:
+      dashboard:
+        condition: service_healthy
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python launch.py --demo --no-browser --port 8000
+    profiles:
+      - demo       # docker-compose --profile demo up
+
+volumes:
+  output:
