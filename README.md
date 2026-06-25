@@ -181,6 +181,36 @@ Cost Estimation (PWD/NHAI SOR)
 Blockchain Repair Log
 ```
 
+## 📸 Screenshots
+
+### Dashboard
+![Dashboard](images/dashboard.png)
+
+---
+
+### Upload Road Image
+![Upload](images/upload.png)
+
+---
+
+### Damage Analysis
+![Analysis](images/analysis.png)
+
+---
+
+### Export Report
+![Export](images/export.png)
+
+---
+
+### Citizen Reporting Portal
+![Citizen Reporting](images/citizenreporting.png)
+
+---
+
+### Project Code Structure
+![VS Code](images/vscode.png)
+
 ---
 
 ## 🌐 Multilingual Support
