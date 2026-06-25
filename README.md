@@ -184,32 +184,32 @@ Blockchain Repair Log
 ## 📸 Screenshots
 
 ### Dashboard
-![Dashboard](images/dashboard.png)
+![Dashboard](images/Dashboard.png)
 
 ---
 
 ### Upload Road Image
-![Upload](images/upload.png)
+![upload](images/upload.png)
 
 ---
 
 ### Damage Analysis
-![Analysis](images/analysis.png)
+![analysis](images/analysis.png)
 
 ---
 
 ### Export Report
-![Export](images/export.png)
+![export](images/export.png)
 
 ---
 
 ### Citizen Reporting Portal
-![Citizen Reporting](images/citizenreporting.png)
+![citizenreporting](images/citizenreporting.png)
 
 ---
 
 ### Project Code Structure
-![VS Code](images/vscode.png)
+![vscode](images/vscode.png)
 
 ---
 
